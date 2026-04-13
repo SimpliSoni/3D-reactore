@@ -47,7 +47,6 @@ h2 {
   color: #fff;
 }
 
-/* Simple button styling */
 .button-group {
   display: flex;
   flex-direction: column;
@@ -70,7 +69,6 @@ button:hover {
   background: #4a4a5a;
 }
 
-/* Red warning text for safety/collisions */
 .warning-msg {
   color: #ff4d4d;
   font-size: 13px;
