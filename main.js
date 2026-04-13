@@ -156,7 +156,7 @@ document.getElementById('btn-confirm').addEventListener('click', () => {
   document.getElementById('warning-text').textContent = '';
 });
 
-// Button logic: Undo last segment
+// undo
 document.getElementById('btn-undo').addEventListener('click', () => {
   if (confirmedTunnels.length > 0) {
     const last = confirmedTunnels.pop();
@@ -166,7 +166,7 @@ document.getElementById('btn-undo').addEventListener('click', () => {
   }
 });
 
-// Button logic: Toggle visibility
+// toggle
 document.getElementById('btn-toggle').addEventListener('click', () => {
   tunnelsVisible = !tunnelsVisible;
   confirmedTunnels.forEach(t => t.visible = tunnelsVisible);
