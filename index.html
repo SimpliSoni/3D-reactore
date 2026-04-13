@@ -11,9 +11,18 @@
     <div id="ui">
       <h2>Tunnel Planner</h2>
       <div class="stat-line">Length: <span id="stat-length">0.00 m</span></div>
-
       <div class="stat-line">Volume: <span id="stat-volume">0.00 m³</span></div>
       <div class="stat-line">Status: <span id="stat-status">Idle</span></div>
+      
+      <!-- Added buttons for tunnel control -->
+      <div class="button-group">
+        <button id="btn-confirm">Confirm Path</button>
+        <button id="btn-undo">Undo Last</button>
+        <button id="btn-toggle">Toggle View</button>
+      </div>
+
+      <!-- Added warning display for safety constraints -->
+      <div id="warning-text" class="warning-msg"></div>
     </div>
     <script type="module" src="./main.js"></script>
   </body>

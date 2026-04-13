@@ -82,6 +82,9 @@ const mouse = new THREE.Vector2();
 let pointA = null;
 let pointB = null;
 
+const confirmedTunnels = []; 
+let tunnelsVisible = true; 
+
 const startSphere = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
 const endSphere = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x3344ff }));
 
@@ -124,18 +127,49 @@ window.addEventListener('mousedown', () => {
     const clickedPoint = intersects[0].point;
     
     if (pointA === null) {
+      // First click
       pointA = clickedPoint.clone();
       startSphere.position.copy(pointA);
       startSphere.position.y = 1;
       scene.add(startSphere);
       document.getElementById('stat-status').textContent = 'Drawing...';
     } else {
-      document.getElementById('stat-status').textContent = 'Path Locked';
-      pointA = null; 
-      scene.remove(startSphere);
-      scene.remove(endSphere);
+      // Second click
+      if (activeTubeMesh) {
+        const segment = activeTubeMesh.clone();
+        segment.material = new THREE.MeshBasicMaterial({ color: 0x44aa66 });
+        scene.add(segment);
+        confirmedTunnels.push(segment);
+      }
+      pointA = clickedPoint.clone();
+      startSphere.position.copy(pointA);
+      startSphere.position.y = 1;
     }
   }
+});
+
+document.getElementById('btn-confirm').addEventListener('click', () => {
+  pointA = null; 
+  scene.remove(startSphere);
+  scene.remove(activeTubeMesh);
+  document.getElementById('stat-status').textContent = 'Path Locked';
+  document.getElementById('warning-text').textContent = '';
+});
+
+// Button logic: Undo last segment
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (confirmedTunnels.length > 0) {
+    const last = confirmedTunnels.pop();
+    scene.remove(last);
+    last.geometry.dispose();
+    last.material.dispose();
+  }
+});
+
+// Button logic: Toggle visibility
+document.getElementById('btn-toggle').addEventListener('click', () => {
+  tunnelsVisible = !tunnelsVisible;
+  confirmedTunnels.forEach(t => t.visible = tunnelsVisible);
 });
 
 // core logic
@@ -165,7 +199,9 @@ function updateTunnelPreview(startPoint, endPoint) {
   activeBox3.setFromObject(activeTubeMesh);
 
   let collision = false;
-  // collision
+  let tooLong = distance > 40; 
+
+  // Collision 
   for (let i = 0; i < obstacles.length; i++) {
     const obstacleBox = new THREE.Box3().setFromObject(obstacles[i]);
     if (activeBox3.intersectsBox(obstacleBox)) {
@@ -174,7 +210,18 @@ function updateTunnelPreview(startPoint, endPoint) {
     }
   }
 
-  activeTubeMesh.material = collision ? dangerMat : safeMat;
+  const warningDiv = document.getElementById('warning-text');
+  if (collision) {
+    activeTubeMesh.material = dangerMat;
+    warningDiv.textContent = 'COLLISION';
+  } else if (tooLong) {
+    activeTubeMesh.material = dangerMat;
+    warningDiv.textContent = 'SAFETY: Segment too long';
+  } else {
+    activeTubeMesh.material = safeMat;
+    warningDiv.textContent = '';
+  }
+
   scene.add(activeTubeMesh);
 
   document.getElementById('stat-length').textContent = distance.toFixed(1) + ' m';
