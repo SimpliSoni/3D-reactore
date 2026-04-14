@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a24); 
+scene.background = new THREE.Color(0xcccccc); 
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(40, 50, 60); 
@@ -37,7 +37,8 @@ const redMat = new THREE.MeshBasicMaterial({ color: 0x8b2222 });
 
 function createBoxObstacle(width, height, depth, x, z) {
   const geom = new THREE.BoxGeometry(width, height, depth);
-  const mesh = new THREE.Mesh(geom, redMat);
+  const cube = new THREE.MeshBasicMaterial({ color: 0x8b2222 , opacity: 0.5, transparent: true });
+  const mesh = new THREE.Mesh(geom, cube);
   mesh.position.set(x, height / 2, z); 
   scene.add(mesh);
   obstacles.push(mesh);
@@ -63,9 +64,9 @@ function createCorridor(width, height, depth, x, z, rotationY) {
   obstacles.push(mesh);
 }
 
-createCorridor(40, 6, 6, 25, 0, getRadians(0));               
-createCorridor(40, 6, 6, -15, 15, getRadians(45));            
-createCorridor(40, 6, 6, -15, -15, getRadians(-45));          
+// createCorridor(40, 6, 6, 25, 0, getRadians(0));               
+// createCorridor(40, 6, 6, -15, 15, getRadians(45));            
+// createCorridor(40, 6, 6, -15, -15, getRadians(-45));          
 
 for (let x = -25; x <= 25; x += 25) {
   for (let z = -25; z <= 25; z += 25) {
@@ -174,6 +175,7 @@ function updateTunnelPreview(startPoint, endPoint) {
   }
   const distance = startPoint.distanceTo(endPoint);
   if (distance < 0.1) return;
+  
   const tunnelGeom = new THREE.CylinderGeometry(1.5, 1.5, distance, 12);
   tunnelGeom.translate(0, distance / 2, 0); 
   activeTubeMesh = new THREE.Mesh(tunnelGeom, safeMat);
@@ -208,6 +210,23 @@ function updateTunnelPreview(startPoint, endPoint) {
   document.getElementById('stat-length').textContent = distance.toFixed(1) + ' m';
   document.getElementById('stat-volume').textContent = (distance * 12).toFixed(1) + ' m³';
 }
+
+// extend corridor to new position and angle based on user input using x, y, z, and angle from textareas and update the corridor accordingly on button click, but it should extend from the last positon of old corridors to new position and angle
+
+function updateCorridor() {
+  const x = parseFloat(document.getElementById('btn-x').value);
+  const z = parseFloat(document.getElementById('btn-z').value);
+  const angle = parseFloat(document.getElementById('btn-angle').value);
+  createCorridor(40, 6, 6, x, z, getRadians(angle));
+}
+
+document.getElementById('btn-update').addEventListener('click', updateCorridor);
+
+// old corridors
+
+createCorridor(40, 6, 6, 25, 0, getRadians(0));               
+createCorridor(40, 6, 6, -15, 15, getRadians(45));            
+createCorridor(40, 6, 6, -15, -15, getRadians(-45));
 
 function animate() {
   requestAnimationFrame(animate);
