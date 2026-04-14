@@ -53,20 +53,7 @@ function createPillar(x, z) {
   obstacles.push(pillar);
 }
 
-createBoxObstacle(20, 15, 20, 0, 0);
-
-function createCorridor(width, height, depth, x, z, rotationY) {
-  const geom = new THREE.BoxGeometry(width, height, depth);
-  const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8b2222, wireframe: true }));
-  mesh.position.set(x, height / 2, z);
-  mesh.rotation.y = rotationY;
-  scene.add(mesh);
-  obstacles.push(mesh);
-}
-
-// createCorridor(40, 6, 6, 25, 0, getRadians(0));               
-// createCorridor(40, 6, 6, -15, 15, getRadians(45));            
-// createCorridor(40, 6, 6, -15, -15, getRadians(-45));          
+createBoxObstacle(20, 15, 20, 0, 0);        
 
 for (let x = -25; x <= 25; x += 25) {
   for (let z = -25; z <= 25; z += 25) {
@@ -211,22 +198,69 @@ function updateTunnelPreview(startPoint, endPoint) {
   document.getElementById('stat-volume').textContent = (distance * 12).toFixed(1) + ' m³';
 }
 
-// extend corridor to new position and angle based on user input using x, y, z, and angle from textareas and update the corridor accordingly on button click, but it should extend from the last positon of old corridors to new position and angle
+// extend corridor 
 
-function updateCorridor() {
-  const x = parseFloat(document.getElementById('btn-x').value);
-  const z = parseFloat(document.getElementById('btn-z').value);
-  const angle = parseFloat(document.getElementById('btn-angle').value);
-  createCorridor(40, 6, 6, x, z, getRadians(angle));
+function createCorridor(width, height, depth, x, z, rotationY) {
+  const geom = new THREE.BoxGeometry(width, height, depth);
+  const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8b2222, wireframe: true }));
+  mesh.position.set(x, height / 2, z);
+  mesh.rotation.y = rotationY;
+  
+  const dummy = new THREE.Object3D();
+  dummy.position.set(x, height / 2, z);
+  dummy.rotation.y = rotationY;
+  
+  dummy.translateX(-width/2); mesh.userData.p1 = dummy.position.clone(); 
+  dummy.position.set(x, height / 2, z);
+  dummy.translateX(width/2);  mesh.userData.p2 = dummy.position.clone(); 
+
+  scene.add(mesh);
+  obstacles.push(mesh);
+  return mesh; 
 }
 
-document.getElementById('btn-update').addEventListener('click', updateCorridor);
+const extendedCorridors = []; 
+let activeStartPoint = new THREE.Vector3(0, 5, 0); 
 
-// old corridors
+// old corridors 
+const initialCorridors = {
+  "Tunnel 1": createCorridor(40, 6, 6, 25, 0, getRadians(0)),
+  "Tunnel 2": createCorridor(40, 6, 6, -15, 15, getRadians(45)),
+  "Tunnel 3": createCorridor(40, 6, 6, -15, -15, getRadians(-45))
+};
 
-createCorridor(40, 6, 6, 25, 0, getRadians(0));               
-createCorridor(40, 6, 6, -15, 15, getRadians(45));            
-createCorridor(40, 6, 6, -15, -15, getRadians(-45));
+document.getElementById('btn-height').placeholder = "Enter Length";
+document.getElementById('btn-angle').placeholder = "Enter Angle";
+
+function performCorridorExtension() {
+  const len = parseFloat(document.getElementById('btn-height').value);
+  const ang = parseFloat(document.getElementById('btn-angle').value);
+  const choice = document.getElementById('btn-x').value;
+  const side = document.getElementById('btn-point').value;
+
+  
+  let target = initialCorridors[choice] || extendedCorridors[extendedCorridors.length - 1];
+  if (!target) return;
+
+  activeStartPoint = (side === 'start') ? target.userData.p1 : target.userData.p2;
+
+  const helper = new THREE.Object3D();         
+  helper.position.copy(activeStartPoint);            
+  helper.rotation.y = THREE.MathUtils.degToRad(ang); 
+  helper.translateX(len / 2); 
+
+  const newSegment = createCorridor(len, 6, 6, helper.position.x, helper.position.z, helper.rotation.y);
+  extendedCorridors.push(newSegment); 
+}
+
+document.getElementById('btn-update').onclick = performCorridorExtension;
+
+document.getElementById('btn-undo-corridor').onclick = () => {
+    if (extendedCorridors.length > 0) {
+        const last = extendedCorridors.pop();
+        scene.remove(last);
+    }
+};
 
 function animate() {
   requestAnimationFrame(animate);
