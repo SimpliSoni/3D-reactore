@@ -52,6 +52,7 @@ h2 {
   flex-direction: column;
   gap: 10px;
   margin-top: 15px;
+  margin-bottom: 20px;
 }
 
 button {

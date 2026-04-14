@@ -7,12 +7,13 @@ scene.background = new THREE.Color(0x1a1a24);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(40, 50, 60); 
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('app').appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0, 0);
+controls.enableDamping = true;
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.0)); 
 const gridHelper = new THREE.GridHelper(100, 20, 0x444455, 0x222233);
@@ -34,7 +35,7 @@ const intersectables = [baseMesh];
 const obstacles = [];
 const redMat = new THREE.MeshBasicMaterial({ color: 0x8b2222 });
 
-function createBoxObstacle(width, height, depth, x, z, label) {
+function createBoxObstacle(width, height, depth, x, z) {
   const geom = new THREE.BoxGeometry(width, height, depth);
   const mesh = new THREE.Mesh(geom, redMat);
   mesh.position.set(x, height / 2, z); 
@@ -51,14 +52,11 @@ function createPillar(x, z) {
   obstacles.push(pillar);
 }
 
-createBoxObstacle(20, 15, 20, 0, 0, "Main Chamber");
+createBoxObstacle(20, 15, 20, 0, 0);
 
 function createCorridor(width, height, depth, x, z, rotationY) {
   const geom = new THREE.BoxGeometry(width, height, depth);
-  const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ 
-    color: 0x8b2222, 
-    wireframe: true 
-  }));
+  const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8b2222, wireframe: true }));
   mesh.position.set(x, height / 2, z);
   mesh.rotation.y = rotationY;
   scene.add(mesh);
@@ -71,70 +69,51 @@ createCorridor(40, 6, 6, -15, -15, getRadians(-45));
 
 for (let x = -25; x <= 25; x += 25) {
   for (let z = -25; z <= 25; z += 25) {
-    if (x === 0 && z === 0) continue; // avoid center
+    if (x === 0 && z === 0) continue;
     createPillar(x, z);
   }
 }
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-
 let pointA = null;
-let pointB = null;
-
 const confirmedTunnels = []; 
 let tunnelsVisible = true; 
 
 const startSphere = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
 const endSphere = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x3344ff }));
-
 const safeMat = new THREE.MeshBasicMaterial({ color: 0x00ff22, transparent: true, opacity: 0.6 });
 const dangerMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 });
 
 let activeTubeMesh = null;
 const activeBox3 = new THREE.Box3(); 
 
-// interaction
 window.addEventListener('mousemove', (event) => {
-  const screenX = event.clientX;
-  const screenY = event.clientY;
-  const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight;
-
-  mouse.x = (screenX / screenWidth) * 2 - 1;
-  mouse.y = -(screenY / screenHeight) * 2 + 1;
-
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(intersectables);
-  
   if (intersects.length > 0) {
     const targetPoint = intersects[0].point;
     endSphere.position.copy(targetPoint);
     endSphere.position.y = 1; 
     scene.add(endSphere);
-    
-    if (pointA !== null) {
-      updateTunnelPreview(pointA, targetPoint);
-    }
+    if (pointA !== null) updateTunnelPreview(pointA, targetPoint);
   }
 });
 
 window.addEventListener('mousedown', () => {
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(intersectables);
-  
   if (intersects.length > 0) {
     const clickedPoint = intersects[0].point;
-    
     if (pointA === null) {
-      // First click
       pointA = clickedPoint.clone();
       startSphere.position.copy(pointA);
       startSphere.position.y = 1;
       scene.add(startSphere);
       document.getElementById('stat-status').textContent = 'Drawing...';
     } else {
-      // Second click
       if (activeTubeMesh) {
         const segment = activeTubeMesh.clone();
         segment.material = new THREE.MeshBasicMaterial({ color: 0x44aa66 });
@@ -156,7 +135,6 @@ document.getElementById('btn-confirm').addEventListener('click', () => {
   document.getElementById('warning-text').textContent = '';
 });
 
-// undo
 document.getElementById('btn-undo').addEventListener('click', () => {
   if (confirmedTunnels.length > 0) {
     const last = confirmedTunnels.pop();
@@ -166,42 +144,48 @@ document.getElementById('btn-undo').addEventListener('click', () => {
   }
 });
 
-// toggle
 document.getElementById('btn-toggle').addEventListener('click', () => {
   tunnelsVisible = !tunnelsVisible;
   confirmedTunnels.forEach(t => t.visible = tunnelsVisible);
 });
 
-// core logic
+document.getElementById('btn-reset').addEventListener('click', () => {
+    camera.position.set(40, 50, 60);
+    controls.target.set(0, 0, 0);
+    controls.update();
+});
+
+document.getElementById('btn-top').addEventListener('click', () => {
+    camera.position.set(0, 80, 0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+});
+
+document.getElementById('btn-side').addEventListener('click', () => {
+    camera.position.set(80, 10, 0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+});
+
 function updateTunnelPreview(startPoint, endPoint) {
   if (activeTubeMesh) {
     scene.remove(activeTubeMesh);
     activeTubeMesh.geometry.dispose(); 
   }
-
   const distance = startPoint.distanceTo(endPoint);
   if (distance < 0.1) return;
-
   const tunnelGeom = new THREE.CylinderGeometry(1.5, 1.5, distance, 12);
-  const halfLength = distance / 2;
-  tunnelGeom.translate(0, halfLength, 0); 
-  
+  tunnelGeom.translate(0, distance / 2, 0); 
   activeTubeMesh = new THREE.Mesh(tunnelGeom, safeMat);
   activeTubeMesh.position.copy(startPoint);
   activeTubeMesh.position.y = 1;
-
   const lookTarget = endPoint.clone();
   lookTarget.y = 1; 
   activeTubeMesh.lookAt(lookTarget);
-  activeTubeMesh.rotateX(getRadians(90)); 
-
+  activeTubeMesh.rotateX(Math.PI / 2); 
   activeTubeMesh.updateMatrixWorld(true);
   activeBox3.setFromObject(activeTubeMesh);
-
   let collision = false;
-  let tooLong = distance > 40; 
-
-  // Collision 
   for (let i = 0; i < obstacles.length; i++) {
     const obstacleBox = new THREE.Box3().setFromObject(obstacles[i]);
     if (activeBox3.intersectsBox(obstacleBox)) {
@@ -209,21 +193,18 @@ function updateTunnelPreview(startPoint, endPoint) {
       break; 
     }
   }
-
   const warningDiv = document.getElementById('warning-text');
   if (collision) {
     activeTubeMesh.material = dangerMat;
     warningDiv.textContent = 'COLLISION';
-  } else if (tooLong) {
+  } else if (distance > 40) {
     activeTubeMesh.material = dangerMat;
     warningDiv.textContent = 'SAFETY: Segment too long';
   } else {
     activeTubeMesh.material = safeMat;
     warningDiv.textContent = '';
   }
-
   scene.add(activeTubeMesh);
-
   document.getElementById('stat-length').textContent = distance.toFixed(1) + ' m';
   document.getElementById('stat-volume').textContent = (distance * 12).toFixed(1) + ' m³';
 }
@@ -240,4 +221,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-;
