@@ -53,7 +53,7 @@ function createPillar(x, z) {
   obstacles.push(pillar);
 }
 
-createBoxObstacle(20, 15, 20, 0, 0);        
+const mainChamber = createBoxObstacle(20, 15, 20, 0, 0);        
 
 for (let x = -25; x <= 25; x += 25) {
   for (let z = -25; z <= 25; z += 25) {
@@ -229,7 +229,6 @@ function createCorridor(width, height, depth, x, z, rotationY) {
 }
 
 const extendedCorridors = []; 
-let activeStartPoint = new THREE.Vector3(0, 5, 0); 
 
 // Base initial corridors placed in the 3D world.
 // We fixed their angles (0, 225, 135 degrees) so that their defined "Start" (p1) 
@@ -243,60 +242,79 @@ const initialCorridors = {
 document.getElementById('btn-height').placeholder = "Enter Length";
 document.getElementById('btn-angle').placeholder = "Enter Angle";
 
+let corridorCount = 3; // Keep track of total corridors to avoid ID collisions
+
+function updateDropdown(name) {
+  const dropdown = document.getElementById('btn-x');
+  const option = document.createElement("option");
+  option.text = name;
+  option.value = name;
+  dropdown.add(option);
+}
+
 function performCorridorExtension() {
   const len = parseFloat(document.getElementById('btn-height').value) || 20;
   const angDeg = parseFloat(document.getElementById('btn-angle').value) || 0;
   const choice = document.getElementById('btn-x').value; 
   const side = document.getElementById('btn-point').value;
 
-  let target;
-  if (initialCorridors[choice]) {
-      target = initialCorridors[choice];
-  } else {
-      target = extendedCorridors.find(c => c.userData.name === choice);
-  }
-
+  // Find target from initial or extended list
+  const target = initialCorridors[choice] || extendedCorridors.find(c => c.userData.name === choice);
   if (!target) return;
 
-  // Calculate final absolute rotation for the new corridor piece
-  // We add the user-defined angle relative to the previous tunnel's angle
+  // 1. Determine Rotation
+  // We add the user-defined angle relative to the previous corridor's base angle
   const baseRotation = target.userData.rotationY;
-  const extensionAngle = THREE.MathUtils.degToRad(angDeg);
+  const extensionAngle = THREE.MathUtils.degToRad(-angDeg);
   const finalRotation = baseRotation + extensionAngle;
 
-  activeStartPoint = (side === 'start') ? target.userData.p1 : target.userData.p2;
+  // 2. Identify the connection point
+  // Connect to either the start (p1) or end (p2) of the selected corridor
+  const connectionPoint = (side === 'start') ? target.userData.p1 : target.userData.p2;
 
+  // 3. Use the Helper to find the new center
+  // This cleverly handles local-to-world transformations without complex matrix math
   const helper = new THREE.Object3D();         
-  helper.position.copy(activeStartPoint);            
+  helper.position.copy(connectionPoint);            
   helper.rotation.y = finalRotation; 
 
-  // Push the helper center outwards by half the new length so it grows from the selected point.
-  // When side === 'start', we multiply by -1 to go in the opposite direction.
-  const pushDir = (side === 'start') ? -1 : 1;
-  helper.translateX(pushDir * len / 2);
+  /* If we attach to the 'end' (p2), we move forward by half-length.
+     If we attach to the 'start' (p1), we move backward by half-length 
+     to ensure the segment grows AWAY from the previous one.
+  */
+  const directionFactor = (side === 'start') ? -1 : 1;
+  helper.translateX(directionFactor * (len / 2));
 
+  // 4. Create the new segment
   const newSegment = createCorridor(len, 6, 6, helper.position.x, helper.position.z, finalRotation);
   
-  // The first newly generated corridor gets ID 4 (since we start with 3 initial tunnels)
-  const nextID = extendedCorridors.length + 4;
-  newSegment.userData.name = "Tunnel " + nextID;
+  // Assign ID and update UI seamlessly using global counter
+  corridorCount++;
+  newSegment.userData.name = `Tunnel ${corridorCount}`;
   
-  const dropdown = document.getElementById('btn-x');
-  const option = document.createElement("option");
-  option.text = newSegment.userData.name;
-  option.value = newSegment.userData.name;
-  dropdown.add(option);
-
+  updateDropdown(newSegment.userData.name);
   extendedCorridors.push(newSegment); 
+
+  // Collision detection against main excavation chamber
+  const newSegmentBox = new THREE.Box3().setFromObject(newSegment);
+  const mainChamberBox = new THREE.Box3().setFromObject(mainChamber);
+  const warningDiv = document.getElementById('warning-text');
+
+  if (newSegmentBox.intersectsBox(mainChamberBox)) {
+      newSegment.material.color.setHex(0xff0000); // Turn it red to indicate danger
+      warningDiv.textContent = 'WARNING!';
+  } else {
+      warningDiv.textContent = '';
+  }
 }
 
-document.getElementById('btn-update').onclick = performCorridorExtension;
+document.getElementById('btn-update').onclick = performCorridorExtension;   
 
 document.getElementById('btn-undo-corridor').onclick = () => {
     if (extendedCorridors.length > 0) {
         const last = extendedCorridors.pop();
         scene.remove(last);
-      
+
         const dropdown = document.getElementById('btn-x');
         for (let i = 0; i < dropdown.options.length; i++) {
             if (dropdown.options[i].value === last.userData.name || dropdown.options[i].text === last.userData.name) {
@@ -304,6 +322,17 @@ document.getElementById('btn-undo-corridor').onclick = () => {
                 break;
             }
         }
+        
+        // Also remove from obstacles array to prevent phantom collisions
+        const index = obstacles.indexOf(last);
+        if (index > -1) {
+            obstacles.splice(index, 1);
+        }
+
+        corridorCount--;
+
+        // Clear any warnings when undoing a segment
+        document.getElementById('warning-text').textContent = '';
     }
 };
 
