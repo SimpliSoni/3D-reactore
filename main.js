@@ -198,21 +198,30 @@ function updateTunnelPreview(startPoint, endPoint) {
   document.getElementById('stat-volume').textContent = (distance * 12).toFixed(1) + ' m³';
 }
 
-// extend corridor 
+// extend corridor
 
 function createCorridor(width, height, depth, x, z, rotationY) {
-  const geom = new THREE.BoxGeometry(width, height, depth);
-  const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8b2222, wireframe: true }));
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), new THREE.MeshBasicMaterial({ color: 0x8b2222, wireframe: true }));
+  // Place the piece centrally at (x, z)
   mesh.position.set(x, height / 2, z);
   mesh.rotation.y = rotationY;
   
-  const dummy = new THREE.Object3D();
-  dummy.position.set(x, height / 2, z);
-  dummy.rotation.y = rotationY;
+  // Math explained for Start (p1) and End (p2) points:
+  // To find the exact ends of the corridor piece, we use simple Right Triangle Math (SOH CAH TOA).
+  // The distance from the center to either end is exactly half the corridor's length (width / 2).
+  // Multiplying this distance by Cosine of the rotation angle gives us the X-axis offset.
+  // Multiplying by Sine of the rotation angle gives us the Z-axis offset.
+  const dx = (width / 2) * Math.cos(rotationY);
+  const dz = (width / 2) * Math.sin(rotationY);
+
+  mesh.userData.rotationY = rotationY;
   
-  dummy.translateX(-width/2); mesh.userData.p1 = dummy.position.clone(); 
-  dummy.position.set(x, height / 2, z);
-  dummy.translateX(width/2);  mesh.userData.p2 = dummy.position.clone(); 
+  // p1 represents the "Start" point. We subtract the horizontal offsets.
+  // In Three.js, due to the coordinate system, we add `dz` to get the opposite Z direction.
+  mesh.userData.p1 = new THREE.Vector3(x - dx, height / 2, z + dz); 
+  
+  // p2 represents the "End" point. We add the horizontal offsets directly.
+  mesh.userData.p2 = new THREE.Vector3(x + dx, height / 2, z - dz); 
 
   scene.add(mesh);
   obstacles.push(mesh);
@@ -222,34 +231,62 @@ function createCorridor(width, height, depth, x, z, rotationY) {
 const extendedCorridors = []; 
 let activeStartPoint = new THREE.Vector3(0, 5, 0); 
 
-// old corridors 
+// Base initial corridors placed in the 3D world.
+// We fixed their angles (0, 225, 135 degrees) so that their defined "Start" (p1) 
+// and "End" (p2) points line up naturally with the visual direction of each corridor.
 const initialCorridors = {
   "Tunnel 1": createCorridor(40, 6, 6, 25, 0, getRadians(0)),
-  "Tunnel 2": createCorridor(40, 6, 6, -15, 15, getRadians(45)),
-  "Tunnel 3": createCorridor(40, 6, 6, -15, -15, getRadians(-45))
+  "Tunnel 2": createCorridor(40, 6, 6, -15, 15, getRadians(225)),
+  "Tunnel 3": createCorridor(40, 6, 6, -15, -15, getRadians(135))
 };
 
 document.getElementById('btn-height').placeholder = "Enter Length";
 document.getElementById('btn-angle').placeholder = "Enter Angle";
 
 function performCorridorExtension() {
-  const len = parseFloat(document.getElementById('btn-height').value);
-  const ang = parseFloat(document.getElementById('btn-angle').value);
-  const choice = document.getElementById('btn-x').value;
+  const len = parseFloat(document.getElementById('btn-height').value) || 20;
+  const angDeg = parseFloat(document.getElementById('btn-angle').value) || 0;
+  const choice = document.getElementById('btn-x').value; 
   const side = document.getElementById('btn-point').value;
 
-  
-  let target = initialCorridors[choice] || extendedCorridors[extendedCorridors.length - 1];
+  let target;
+  if (initialCorridors[choice]) {
+      target = initialCorridors[choice];
+  } else {
+      target = extendedCorridors.find(c => c.userData.name === choice);
+  }
+
   if (!target) return;
+
+  // Calculate final absolute rotation for the new corridor piece
+  // We add the user-defined angle relative to the previous tunnel's angle
+  const baseRotation = target.userData.rotationY;
+  const extensionAngle = THREE.MathUtils.degToRad(angDeg);
+  const finalRotation = baseRotation + extensionAngle;
 
   activeStartPoint = (side === 'start') ? target.userData.p1 : target.userData.p2;
 
   const helper = new THREE.Object3D();         
   helper.position.copy(activeStartPoint);            
-  helper.rotation.y = THREE.MathUtils.degToRad(ang); 
-  helper.translateX(len / 2); 
+  helper.rotation.y = finalRotation; 
 
-  const newSegment = createCorridor(len, 6, 6, helper.position.x, helper.position.z, helper.rotation.y);
+  // Push the helper center outwards by half the new length so it grows from the selected point.
+  // When side === 'start', we multiply by -1 to go in the opposite direction.
+  const pushDir = (side === 'start') ? -1 : 1;
+  helper.translateX(pushDir * len / 2);
+
+  const newSegment = createCorridor(len, 6, 6, helper.position.x, helper.position.z, finalRotation);
+  
+  // The first newly generated corridor gets ID 4 (since we start with 3 initial tunnels)
+  const nextID = extendedCorridors.length + 4;
+  newSegment.userData.name = "Tunnel " + nextID;
+  
+  const dropdown = document.getElementById('btn-x');
+  const option = document.createElement("option");
+  option.text = newSegment.userData.name;
+  option.value = newSegment.userData.name;
+  dropdown.add(option);
+
   extendedCorridors.push(newSegment); 
 }
 
@@ -259,6 +296,14 @@ document.getElementById('btn-undo-corridor').onclick = () => {
     if (extendedCorridors.length > 0) {
         const last = extendedCorridors.pop();
         scene.remove(last);
+      
+        const dropdown = document.getElementById('btn-x');
+        for (let i = 0; i < dropdown.options.length; i++) {
+            if (dropdown.options[i].value === last.userData.name || dropdown.options[i].text === last.userData.name) {
+                dropdown.remove(i);
+                break;
+            }
+        }
     }
 };
 
