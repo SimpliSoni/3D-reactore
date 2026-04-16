@@ -202,7 +202,7 @@ function updateTunnelPreview(startPoint, endPoint) {
 
 function createCorridor(width, height, depth, x, z, rotationY) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), new THREE.MeshBasicMaterial({ color: 0x8b2222, wireframe: true }));
-  mesh.position.set(x, height / 2, z);
+  mesh.position.set(x,height /2, z);
   mesh.rotation.y = rotationY;
   
   mesh.userData.rotationY = rotationY;
@@ -284,9 +284,19 @@ function performCorridorExtension() {
   const warningDiv = document.getElementById('warning-text');
 
   if (newSegmentBox.intersectsBox(mainChamberBox)) {
-      newSegment.material.color.setHex(0xff0000);
-      warningDiv.textContent = 'WARNING!';
-  } else {
+      warningDiv.textContent = 'Warning, Cannot extend into main chamber!';
+      let obs = obstacles.indexOf(newSegment);
+      if (obs > -1) {
+          obstacles.splice(obs, 1);
+      }
+
+      scene.remove(newSegment);
+      extendedCorridors.pop();
+      corridorCount--;
+
+      newSegment.geometry.dispose();
+      newSegment.material.dispose(); 
+  } else{
       warningDiv.textContent = '';
   }
 }
@@ -306,7 +316,6 @@ document.getElementById('btn-undo-corridor').onclick = () => {
             }
         }
         
-        // clear from obstacles array
         const index = obstacles.indexOf(last);
         if (index > -1) {
             obstacles.splice(index, 1);
@@ -314,7 +323,6 @@ document.getElementById('btn-undo-corridor').onclick = () => {
 
         corridorCount--;
 
-        // Clear any warnings when undoing
         document.getElementById('warning-text').textContent = '';
     }
 };
