@@ -283,20 +283,42 @@ function performCorridorExtension() {
   const mainChamberBox = new THREE.Box3().setFromObject(mainChamber);
   const warningDiv = document.getElementById('warning-text');
 
-  if (newSegmentBox.intersectsBox(mainChamberBox)) {
-      warningDiv.textContent = 'Warning, Cannot extend into main chamber!';
-      let obs = obstacles.indexOf(newSegment);
-      if (obs > -1) {
-          obstacles.splice(obs, 1);
+  let hasCollision = false;
+  for (let i = 0; i < obstacles.length; i++) {
+      const obs = obstacles[i];
+      if (obs === newSegment || obs === target || obs === mainChamber) continue;
+      
+      const obsBox = new THREE.Box3().setFromObject(obs);
+      if (newSegmentBox.intersectsBox(obsBox)) {
+          hasCollision = true;
+          break;
       }
+  }
+
+  if (hasCollision) {
+      warningDiv.textContent = 'Blocked by another obstacle!';
+      
+      let obs = obstacles.indexOf(newSegment);
+      if (obs > -1) obstacles.splice(obs, 1);
 
       scene.remove(newSegment);
       extendedCorridors.pop();
       corridorCount--;
+      
+      const dropdown = document.getElementById('btn-x');
+      for (let i = 0; i < dropdown.options.length; i++) {
+          if (dropdown.options[i].value === newSegment.userData.name) {
+              dropdown.remove(i);
+              break;
+          }
+      }
 
       newSegment.geometry.dispose();
       newSegment.material.dispose(); 
-  } else{
+  } else if (newSegmentBox.intersectsBox(mainChamberBox)) {
+      newSegment.material.color.setHex(0xff0000); 
+      warningDiv.textContent = 'Warning: Extended into main chamber!';
+  } else {
       warningDiv.textContent = '';
   }
 }
