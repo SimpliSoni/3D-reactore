@@ -76,6 +76,7 @@ const dangerMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: tr
 let activeTubeMesh = null;
 const activeBox3 = new THREE.Box3(); 
 
+/* 
 window.addEventListener('mousemove', (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -114,6 +115,7 @@ window.addEventListener('mousedown', () => {
     }
   }
 });
+*/
 
 document.getElementById('btn-confirm').addEventListener('click', () => {
   pointA = null; 
@@ -315,9 +317,9 @@ function performCorridorExtension() {
 
       newSegment.geometry.dispose();
       newSegment.material.dispose(); 
-  } else if (newSegmentBox.intersectsBox(mainChamberBox)) {
-      newSegment.material.color.setHex(0xff0000); 
-      warningDiv.textContent = 'Warning: Extended into main chamber!';
+  // } else if (newSegmentBox.intersectsBox(mainChamberBox)) {
+  //     newSegment.material.color.setHex(0xff0000); 
+  //     warningDiv.textContent = 'Warning: Extended into main chamber!';
   } else {
       warningDiv.textContent = '';
   }
@@ -325,28 +327,14 @@ function performCorridorExtension() {
 
 document.getElementById('btn-update').onclick = performCorridorExtension;   
 
-document.getElementById('btn-undo-corridor').onclick = () => {
-    if (extendedCorridors.length > 0) {
-        const last = extendedCorridors.pop();
-        scene.remove(last);
+document.getElementById('btn-zoom-in').onclick = () => {
+    camera.position.multiplyScalar(0.9);
+    controls.update();
+};
 
-        const dropdown = document.getElementById('btn-x');
-        for (let i = 0; i < dropdown.options.length; i++) {
-            if (dropdown.options[i].value === last.userData.name || dropdown.options[i].text === last.userData.name) {
-                dropdown.remove(i);
-                break;
-            }
-        }
-        
-        const index = obstacles.indexOf(last);
-        if (index > -1) {
-            obstacles.splice(index, 1);
-        }
-
-        corridorCount--;
-
-        document.getElementById('warning-text').textContent = '';
-    }
+document.getElementById('btn-zoom-out').onclick = () => {
+    camera.position.multiplyScalar(1.1);
+    controls.update();
 };
 
 function animate() {
