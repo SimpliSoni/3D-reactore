@@ -327,15 +327,15 @@ function performCorridorExtension() {
 
 document.getElementById('btn-update').onclick = performCorridorExtension;   
 
-document.getElementById('btn-zoom-in').onclick = () => {
-    camera.position.multiplyScalar(0.9);
-    controls.update();
-};
+// document.getElementById('btn-zoom-in').onclick = () => {
+//     camera.position.multiplyScalar(0.9);
+//     controls.update();
+// };
 
-document.getElementById('btn-zoom-out').onclick = () => {
-    camera.position.multiplyScalar(1.1);
-    controls.update();
-};
+// document.getElementById('btn-zoom-out').onclick = () => {
+//     camera.position.multiplyScalar(1.1);
+//     controls.update();
+// };
 
 function animate() {
   requestAnimationFrame(animate);
